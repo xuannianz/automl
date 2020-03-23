@@ -374,7 +374,7 @@ def build_feature_network(features, config):
       input_size=config.image_size,
       min_level=config.min_level,
       max_level=config.max_level)
-
+  all_feats = []
   with tf.variable_scope('fpn_cells'):
     for rep in range(config.fpn_cell_repeats):
       with tf.variable_scope('cell_{}'.format(rep)):
@@ -401,14 +401,14 @@ def build_feature_network(features, config):
             for level in range(
                 config.min_level, config.max_level + 1)
         ]
-
+        all_feats.extend(feats.copy())
         _verify_feats_size(
             feats,
             input_size=config.image_size,
             min_level=config.min_level,
             max_level=config.max_level)
-
-  return new_feats
+  all_feats = {i: feat for i, feat in enumerate(all_feats)}
+  return new_feats, all_feats
 
 
 F = lambda x: 1.0 / (2 ** x)  # Resolution size for a given feature level.
@@ -554,7 +554,7 @@ def efficientdet(features, model_name=None, config=None, **kwargs):
       *utils.num_params_flops()))
 
   # build feature network.
-  fpn_feats = build_feature_network(features, config)
+  fpn_feats, first_feats = build_feature_network(features, config)
   tf.logging.info('backbone+fpn params/flops = {:.6f}M, {:.9f}B'.format(
       *utils.num_params_flops()))
 
@@ -563,4 +563,4 @@ def efficientdet(features, model_name=None, config=None, **kwargs):
   tf.logging.info('backbone+fpn+box params/flops = {:.6f}M, {:.9f}B'.format(
       *utils.num_params_flops()))
 
-  return class_outputs, box_outputs
+  return class_outputs, box_outputs, first_feats

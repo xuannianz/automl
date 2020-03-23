@@ -148,7 +148,17 @@ class ModelInspector(object):
     sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver(var_dict, max_to_keep=1)
     saver.restore(sess, checkpoint)
-
+    global_variables = tf.global_variables()
+    weights = dict()
+    for variable in global_variables:
+        try:
+            if 'Exponential' in variable.name:
+                continue
+            weights[variable.name] = variable.eval()
+        except:
+            print(f"Skipping variable {variable.name}, an exception occurred")
+    import pickle
+    pickle.dump(weights, open(f'checkpoints/{self.model_name}_weights.pkl', 'wb'))
     if export_ckpt:
       print('export model to {}'.format(export_ckpt))
       if ema_assign_op is not None:
@@ -158,12 +168,17 @@ class ModelInspector(object):
 
   def eval_ckpt(self):
     """build and save the model into self.logdir."""
-    with tf.Graph().as_default(), tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Graph().as_default(), tf.Session(config=config) as sess:
       # Build model with inputs and labels.
       inputs = tf.placeholder(tf.float32, name='input', shape=self.inputs_shape)
-      self.build_model(inputs, is_training=False)
+      # inputs = tf.constant(np.load('/home/adam/github/xuannianc/EfficientDet_bak/image.npy'))
+      outputs = self.build_model(inputs, is_training=False)
       self.restore_model(
           sess, self.ckpt_path, self.enable_ema, self.export_ckpt)
+      output_np = sess.run(outputs)
+      pass
 
   def inference_single_image(self, image_image_path, output_dir):
     driver = inference.InferenceDriver(self.model_name, self.ckpt_path)
